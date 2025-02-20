@@ -19,7 +19,7 @@ class FibonacciAnalyzer:
             return n
         return self.fibonacci_recursive(n - 1) + self.fibonacci_recursive(n - 2)
     
-    # 2. recursive method with memoization
+    # 2. memoization
     @lru_cache(maxsize=None)
     def fibonacci_memoization(self, n):
         if n <= 1:
