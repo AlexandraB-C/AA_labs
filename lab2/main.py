@@ -4,68 +4,64 @@ import sys
 from collections import deque
 import matplotlib.pyplot as plt
 
-# quick sort algo
 def quicksort(arr):
-    if len(arr) <= 1:  # if arr is small, just return it
+    if len(arr) <= 1:  # if arr small, return
         return arr
     else:
         pivot = arr[0]  # pick first elem as pivot
-        left = [x for x in arr[1:] if x < pivot]  # all elems less than pivot
-        right = [x for x in arr[1:] if x >= pivot]  # all elems greater than pivot
-    return quicksort(left) + [pivot] + quicksort(right)  # combine left, pivot, right
+        left = [x for x in arr[1:] if x < pivot]  # all elems less than p
+        right = [x for x in arr[1:] if x >= pivot]  # all elems greater than p
+    return quicksort(left) + [pivot] + quicksort(right)  # combine
 
-# merge sort algo
 def mergesort(arr):
-    if len(arr) <= 1:  # if arr is small, just return it
+    if len(arr) <= 1:  # if small return
         return arr
-    mid = len(arr) // 2  # find mid point
-    left = arr[:mid]  # split into left half
-    right = arr[mid:]  # split into right half
-    left = mergesort(left)  # sort left half
-    right = mergesort(right)  # sort right half
-    merged = []  # init merged arr
-    i = j = 0  # pointers for left and right
-    while i < len(left) and j < len(right):  # merge left and right
+    mid = len(arr) // 2  # find mid
+    left = arr[:mid]  # split left
+    right = arr[mid:]  # split right
+    left = mergesort(left)  # sort l
+    right = mergesort(right)  # sort r
+    merged = []
+    i = j = 0
+    while i < len(left) and j < len(right):  #merge
         if left[i] <= right[j]:
             merged.append(left[i])
             i += 1
         else:
             merged.append(right[j])
             j += 1
-    merged.extend(left[i:])  # add remaining elems from left
-    merged.extend(right[j:])  # add remaining elems from right
+    merged.extend(left[i:])
+    merged.extend(right[j:])
     return merged
 
-# heap sort algo
 def heapsort(arr):
     def heapify(arr, n, i):
         largest = i  # root is largest
-        left = 2 * i + 1  # left child
-        right = 2 * i + 2  # right child
-        if left < n and arr[left] > arr[largest]:  # if left child is larger
+        left = 2 * i + 1
+        right = 2 * i + 2
+        if left < n and arr[left] > arr[largest]:
             largest = left
-        if right < n and arr[right] > arr[largest]:  # if right child is larger
+        if right < n and arr[right] > arr[largest]:
             largest = right
-        if largest != i:  # if root is not largest
+        if largest != i:  # if root is not lrg
             arr[i], arr[largest] = arr[largest], arr[i]  # swap
-            heapify(arr, n, largest)  # heapify the affected subtree
+            heapify(arr, n, largest)
 
-    result = arr.copy()  # copy arr to avoid modifying original
+    result = arr.copy()  # to avoid modifying orig
     n = len(result)
     for i in range(n // 2 - 1, -1, -1):  # build max heap
         heapify(result, n, i)
-    for i in range(n - 1, 0, -1):  # extract elems one by one
+    for i in range(n - 1, 0, -1):  # extract
         result[i], result[0] = result[0], result[i]  # swap
-        heapify(result, i, 0)  # heapify root elem
+        heapify(result, i, 0)  # heapify root
     return result
 
-# gnome sort algo
 def gnome_sort(arr, n=None):
-    result = arr.copy()  # copy arr to avoid modifying original
-    if n is None:  # if n not provided, use len of arr
+    result = arr.copy()
+    if n is None:
         n = len(result)
     index = 0
-    while index < n:  # move elem to correct position
+    while index < n:
         if index == 0:
             index = index + 1
         if result[index] >= result[index - 1]:
@@ -75,7 +71,6 @@ def gnome_sort(arr, n=None):
             index = index - 1
     return result
 
-# timeout sort func to handle timeouts
 def timeout_sort(sort_func, arr, timeout=120):
     start_time = time.time()
     result = None
@@ -87,16 +82,15 @@ def timeout_sort(sort_func, arr, timeout=120):
     except Exception as e:
         print(f"Sorting failed: {e}")
     end_time = time.time()
-    elapsed_time = (end_time - start_time) * 1000  # calc elapsed time in ms
-    if elapsed_time > timeout * 1000:  # if timeout, raise error
+    elapsed_time = (end_time - start_time) * 1000
+    if elapsed_time > timeout * 1000:
         raise TimeoutError(f"Sorting took longer than {timeout} seconds.")
     return result, elapsed_time
 
-# measure performance of sort func
 def measure_performance(sort_func, arr):
     try:
         sorted_arr, elapsed_time = timeout_sort(sort_func, arr)
-        memory_used = sys.getsizeof(sorted_arr)  # calc memory used
+        memory_used = sys.getsizeof(sorted_arr)
         return {
             "time": elapsed_time,
             "memory": memory_used,
@@ -104,13 +98,12 @@ def measure_performance(sort_func, arr):
         }
     except TimeoutError as e:
         return {
-            "time": float('inf'),  # if timeout, set time to infinity
+            "time": float('inf'),
             "memory": 0,
             "sorted_array": None,
             "error": str(e)
         }
 
-# test arrays for sorting
 TEST_ARRAYS = {
     "random": [73, -12, 456.5, 89, -234, 5.25, 678, -34.7, 901, 23, -567, 8.9, 123, 45.6, 789, -15,
                321.3, 67, -890, 2, 444, -98.2, 765, 31, -222, 543.8, 999, 17.4, 88, -654, 111.1,
@@ -142,7 +135,6 @@ TEST_ARRAYS = {
                    -5, -42, 17.5, 99.9, -5, 17.5, -42, 3.2]
 }
 
-# print conclusion of sorting results
 def print_conclusion(all_stats):
     print("\n=== Results ===")
     for algo_name, stats in all_stats.items():
@@ -154,7 +146,6 @@ def print_conclusion(all_stats):
         print(f"Average Time: {avg_time:.4f} ms")
         print(f"Average Memory: {avg_memory:.2f} bytes")
         
-        # find best and worst cases
         times = [(arr_type, measures["time"]) for arr_type, measures in stats.items() if measures["time"] != float('inf')]
         if times:
             best_case = min(times, key=lambda x: x[1])
@@ -164,12 +155,10 @@ def print_conclusion(all_stats):
         else:
             print("No valid performance.")
 
-# plot results of sorting
 def plot_results(all_stats, is_single_algorithm=False):
     for algo_name, stats in all_stats.items():
         plt.figure(figsize=(12, 6))
         
-        # extract data
         array_types = []
         times = []
         memories = []
@@ -180,7 +169,6 @@ def plot_results(all_stats, is_single_algorithm=False):
                 times.append(measures["time"])
                 memories.append(measures["memory"])
         
-        # plot execution times
         plt.subplot(1, 2, 1)
         bars = plt.bar(array_types, times, color='skyblue')
         plt.title(f'{algo_name} Execution Time by Array Type')
@@ -188,13 +176,11 @@ def plot_results(all_stats, is_single_algorithm=False):
         plt.ylabel('Time (ms)')
         plt.xticks(rotation=45)
         
-        # add value labels
         for bar in bars:
             height = bar.get_height()
             plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
                     f'{height:.2f}', ha='center', va='bottom', fontsize=8)
         
-        # plot memory usage
         plt.subplot(1, 2, 2)
         bars = plt.bar(array_types, memories, color='lightgreen')
         plt.title(f'{algo_name} Memory Usage by Array Type')
@@ -202,7 +188,6 @@ def plot_results(all_stats, is_single_algorithm=False):
         plt.ylabel('Memory (bytes)')
         plt.xticks(rotation=45)
         
-        # add value labels
         for bar in bars:
             height = bar.get_height()
             plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
@@ -210,16 +195,13 @@ def plot_results(all_stats, is_single_algorithm=False):
         
         plt.tight_layout()
         
-        # if single algo, just show this graph
         if is_single_algorithm:
             plt.show()
             return
     
-    # if multiple algos, show comparison chart
     if not is_single_algorithm and len(all_stats) > 1:
         plt.figure(figsize=(14, 8))
         
-        # calc avg time for each algo
         algo_names = []
         avg_times = []
         
@@ -229,13 +211,11 @@ def plot_results(all_stats, is_single_algorithm=False):
                 algo_names.append(algo_name)
                 avg_times.append(sum(valid_times) / len(valid_times))
         
-        # plot avg execution times
         bars = plt.bar(algo_names, avg_times, color=['skyblue', 'lightgreen', 'lightcoral', 'gold'])
         plt.title('Average Execution Time by Algorithm')
         plt.xlabel('Algorithm')
         plt.ylabel('Time (ms)')
         
-        # add value labels
         for bar in bars:
             height = bar.get_height()
             plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
@@ -243,10 +223,8 @@ def plot_results(all_stats, is_single_algorithm=False):
         
         plt.tight_layout()
     
-    # show all plots
     plt.show()
 
-# main func to run sorting algos
 def main():
     print("\nChoose:")
     print("1. QuickSort")
@@ -255,12 +233,12 @@ def main():
     print("4. Gnome Sort")
     print("5. Run all algorithms")
     
-    choice = input("Enter your choice (default: 5): ").strip()
+    choice = input("Enter your choice: ").strip()
     if choice not in ['1', '2', '3', '4', '5']:
         choice = '5'
         print("Invalid choice. Running all algorithms.")
     
-    show_sorted = input("\nWanna see the sorted arrays? (y/n, default: n): ").lower()
+    show_sorted = input("\nWanna see the sorted arrays?: ").lower()
     show_sorted = show_sorted == 'y'
     
     all_stats = {}
@@ -305,7 +283,6 @@ def main():
         all_stats['GnomeSort'] = {name: measure_performance(gnome_sort, arr) 
                                 for name, arr in TEST_ARRAYS.items()}
     
-    # display results
     for algo_name, stats in all_stats.items():
         print(f"\n{algo_name} Results:")
         for arr_type, measures in stats.items():
@@ -319,7 +296,6 @@ def main():
     
     print_conclusion(all_stats)
     
-    # display plots
     plot_results(all_stats, is_single_algorithm)
 
 if __name__ == "__main__":
