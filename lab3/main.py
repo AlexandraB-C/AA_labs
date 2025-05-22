@@ -1,242 +1,223 @@
-import networkx as nx
-import matplotlib.pyplot as plt
-import numpy as np
 import time
+import matplotlib.pyplot as plt
 from collections import deque
-import os
+import random
 
-# Create a directory for saving visualizations
-os.makedirs("algorithm_comparison", exist_ok=True)
-
-
-# Implementations of DFS and BFS
-def dfs(graph, start, visited=None, path=None):
-    if visited is None:
+class Graph:
+    def __init__(self):
+        self.graph = {}
+    
+    def add_edge(self, u, v):
+        # add edge between nodes
+        if u not in self.graph:
+            self.graph[u] = []
+        if v not in self.graph:
+            self.graph[v] = []
+        self.graph[u].append(v)
+        self.graph[v].append(u)  # undirected graph
+    
+    def dfs(self, start, target):
+        # depth first search
         visited = set()
-    if path is None:
-        path = []
+        stack = [start]
+        operations = 0
+        
+        while stack:
+            operations += 1
+            node = stack.pop()
+            
+            if node == target:
+                return operations, True
+            
+            if node not in visited:
+                visited.add(node)
+                # add neighbors to stack
+                for neighbor in self.graph.get(node, []):
+                    if neighbor not in visited:
+                        stack.append(neighbor)
+        
+        return operations, False
+    
+    def bfs(self, start, target):
+        # breadth first search
+        visited = set()
+        queue = deque([start])
+        visited.add(start)
+        operations = 0
+        
+        while queue:
+            operations += 1
+            node = queue.popleft()
+            
+            if node == target:
+                return operations, True
+            
+            # add neighbors to queue
+            for neighbor in self.graph.get(node, []):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+        
+        return operations, False
 
-    visited.add(start)
-    path.append(start)
+def create_chain_graph(nodes):
+    # chain graph: 0-1-2-3-...-n
+    g = Graph()
+    for i in range(nodes-1):
+        g.add_edge(i, i+1)
+    return g
 
-    for neighbor in graph[start]:
-        if neighbor not in visited:
-            dfs(graph, neighbor, visited, path)
+def create_binary_tree(nodes):
+    # binary tree structure
+    g = Graph()
+    for i in range(nodes//2):
+        left_child = 2*i + 1
+        right_child = 2*i + 2
+        if left_child < nodes:
+            g.add_edge(i, left_child)
+        if right_child < nodes:
+            g.add_edge(i, right_child)
+    return g
 
-    return path
+def create_cyclic_graph(nodes):
+    # cycle graph: 0-1-2-...-n-0
+    g = Graph()
+    for i in range(nodes):
+        g.add_edge(i, (i+1) % nodes)
+    return g
 
+def create_random_sparse(nodes):
+    # random sparse graph (e=2n)
+    g = Graph()
+    edges_count = 2 * nodes
+    for _ in range(edges_count):
+        u = random.randint(0, nodes-1)
+        v = random.randint(0, nodes-1)
+        if u != v:
+            g.add_edge(u, v)
+    return g
 
-def bfs(graph, start):
-    visited = set([start])
-    queue = deque([start])
-    path = [start]
+def create_random_dense(nodes):
+    # random dense graph (d=0.5)
+    g = Graph()
+    max_edges = nodes * (nodes - 1) // 2
+    target_edges = int(max_edges * 0.5)
+    
+    edges_added = 0
+    attempts = 0
+    while edges_added < target_edges and attempts < target_edges * 3:
+        u = random.randint(0, nodes-1)
+        v = random.randint(0, nodes-1)
+        if u != v and v not in g.graph.get(u, []):
+            g.add_edge(u, v)
+            edges_added += 1
+        attempts += 1
+    return g
 
-    while queue:
-        current = queue.popleft()
-
-        for neighbor in graph[current]:
-            if neighbor not in visited:
-                visited.add(neighbor)
-                queue.append(neighbor)
-                path.append(neighbor)
-
-    return path
-
-
-# Function to measure algorithm performance
-def measure_performance(graph, start_node, algorithm):
-    start_time = time.time()
-    if algorithm == "DFS":
-        path = dfs(graph, start_node)
-    else:  # BFS
-        path = bfs(graph, start_node)
-    end_time = time.time()
-
-    execution_time = (end_time - start_time) * 1000  # Convert to milliseconds
-    memory_usage = len(
-        path
-    )  # Simple proxy for memory usage - size of the resulting path
-
-    return {
-        "execution_time": execution_time,
-        "memory_usage": memory_usage,
-        "path_length": len(path),
-        "path": path,
+def measure_performance():
+    # test different graph sizes and types
+    sizes = [10, 20, 50, 100, 200]
+    
+    # store results for each graph type
+    results = {
+        'Chain Graph': {'dfs': [], 'bfs': []},
+        'Binary Tree': {'dfs': [], 'bfs': []},
+        'Cyclic Graph': {'dfs': [], 'bfs': []},
+        'Random Sparse (e=2n)': {'dfs': [], 'bfs': []},
+        'Random Dense (d=0.5)': {'dfs': [], 'bfs': []}
     }
-
-
-# Function to visualize the final path of both algorithms
-def visualize_final_paths(G, graph_adj_list, start_node, graph_type):
-    # Get DFS and BFS paths
-    dfs_path = dfs(graph_adj_list, start_node)
-    bfs_path = bfs(graph_adj_list, start_node)
-
-    # Create a figure with two subplots side by side
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
-
-    # Get node positions (consistent for both visualizations)
-    if graph_type == "grid":
-        pos = {node: node for node in G.nodes()}
-    else:
-        pos = nx.spring_layout(G, seed=42)
-
-    # Draw DFS path
-    nx.draw_networkx_edges(G, pos, ax=ax1, alpha=0.3)
-
-    # Color nodes according to their order in DFS path
-    node_colors = ["lightgray"] * len(G.nodes())
-    for i, node in enumerate(dfs_path):
-        node_colors[node] = plt.cm.viridis(i / len(dfs_path))
-
-    nx.draw_networkx_nodes(G, pos, ax=ax1, node_color=node_colors, node_size=500)
-    nx.draw_networkx_labels(G, pos, ax=ax1)
-
-    # Draw the DFS path as a sequence of edges with increasing line width
-    for i in range(len(dfs_path) - 1):
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            ax=ax1,
-            edgelist=[(dfs_path[i], dfs_path[i + 1])],
-            width=2,
-            edge_color=plt.cm.viridis(i / len(dfs_path)),
-            arrows=True,
-        )
-
-    ax1.set_title(
-        f"DFS Path on {graph_type.title()} Graph\nPath length: {len(dfs_path)}"
-    )
-    ax1.axis("off")
-
-    # Draw BFS path
-    nx.draw_networkx_edges(G, pos, ax=ax2, alpha=0.3)
-
-    # Color nodes according to their order in BFS path
-    node_colors = ["lightgray"] * len(G.nodes())
-    for i, node in enumerate(bfs_path):
-        node_colors[node] = plt.cm.plasma(i / len(bfs_path))
-
-    nx.draw_networkx_nodes(G, pos, ax=ax2, node_color=node_colors, node_size=500)
-    nx.draw_networkx_labels(G, pos, ax=ax2)
-
-    # Draw the BFS path as a sequence of edges with increasing line width
-    for i in range(len(bfs_path) - 1):
-        nx.draw_networkx_edges(
-            G,
-            pos,
-            ax=ax2,
-            edgelist=[(bfs_path[i], bfs_path[i + 1])],
-            width=2,
-            edge_color=plt.cm.plasma(i / len(bfs_path)),
-            arrows=True,
-        )
-
-    ax2.set_title(
-        f"BFS Path on {graph_type.title()} Graph\nPath length: {len(bfs_path)}"
-    )
-    ax2.axis("off")
-
-    plt.tight_layout()
-    plt.savefig(f"algorithm_comparison/{graph_type}_final_paths.png", dpi=300)
-    plt.close()
-
-    return dfs_path, bfs_path
-
-
-# Function to compare algorithms for various node sizes with line graphs
-def compare_algorithms_with_line_graphs(
-    graph_types, sizes=[10, 20, 50, 100, 200], directed=False
-):
-    all_results = {}
-
-    for graph_type in graph_types:
-        results = {
-            "DFS": {"execution_time": [], "memory_usage": [], "path_length": []},
-            "BFS": {"execution_time": [], "memory_usage": [], "path_length": []},
+    
+    print("testing performance on different graph types...")
+    
+    for size in sizes:
+        print(f"testing size {size}")
+        
+        # create different graph types
+        graphs = {
+            'Chain Graph': create_chain_graph(size),
+            'Binary Tree': create_binary_tree(size),
+            'Cyclic Graph': create_cyclic_graph(size),
+            'Random Sparse (e=2n)': create_random_sparse(size),
+            'Random Dense (d=0.5)': create_random_dense(size)
         }
+        
+        start = 0
+        target = size - 1
+        
+        for graph_type, g in graphs.items():
+            # measure dfs
+            start_time = time.time()
+            ops_dfs, found_dfs = g.dfs(start, target)
+            dfs_time = time.time() - start_time
+            
+            # measure bfs  
+            start_time = time.time()
+            ops_bfs, found_bfs = g.bfs(start, target)
+            bfs_time = time.time() - start_time
+            
+            results[graph_type]['dfs'].append(dfs_time * 1000)
+            results[graph_type]['bfs'].append(bfs_time * 1000)
+            
+            print(f"  {graph_type}: dfs {ops_dfs}ops/{dfs_time*1000:.2f}ms, bfs {ops_bfs}ops/{bfs_time*1000:.2f}ms")
+    
+    return sizes, results
 
-        for size in sizes:
-            # Generate graph based on type and size
-            if graph_type == "path":
-                G = nx.path_graph(size)
-            elif graph_type == "cycle":
-                G = nx.cycle_graph(size)
-            elif graph_type == "complete":
-                G = nx.complete_graph(size)
-            elif graph_type == "star":
-                G = nx.star_graph(size - 1)
-            elif graph_type == "binary_tree":
-                depth = int(np.log2(size + 1))
-                G = nx.balanced_tree(2, depth)
-            elif graph_type == "grid":
-                grid_size = int(np.sqrt(size))
-                G = nx.grid_2d_graph(grid_size, grid_size)
-            elif graph_type == "sparse":
-                G = nx.gnp_random_graph(size, 0.2, seed=42)
-                # Ensure graph is connected
-                while not nx.is_connected(G):
-                    G = nx.gnp_random_graph(size, 0.2, seed=np.random.randint(1000))
-            else:  # Dense
-                G = nx.gnp_random_graph(size, 0.7, seed=42)
-
-            # Ensure we have a valid start node
-            start_node = list(G.nodes())[0]
-
-            # Convert NetworkX graph to adjacency list representation
-            graph_adj_list = {node: list(G.neighbors(node)) for node in G.nodes()}
-
-            # Run DFS and measure performance
-            dfs_result = measure_performance(graph_adj_list, start_node, "DFS")
-            results["DFS"]["execution_time"].append(dfs_result["execution_time"])
-            results["DFS"]["memory_usage"].append(dfs_result["memory_usage"])
-            results["DFS"]["path_length"].append(dfs_result["path_length"])
-
-            # Run BFS and measure performance
-            bfs_result = measure_performance(graph_adj_list, start_node, "BFS")
-            results["BFS"]["execution_time"].append(bfs_result["execution_time"])
-            results["BFS"]["memory_usage"].append(bfs_result["memory_usage"])
-            results["BFS"]["path_length"].append(bfs_result["path_length"])
-
-            # Visualize final paths for a medium-sized graph
-            if size == 20:
-                visualize_final_paths(G, graph_adj_list, start_node, graph_type)
-
-        all_results[graph_type] = results
-
-    # Create line graphs comparing performance metrics across sizes
-    fig, axes = plt.subplots(3, len(graph_types), figsize=(5 * len(graph_types), 15))
-
-    metrics = ["execution_time", "memory_usage", "path_length"]
-    metric_titles = ["Execution Time (ms)", "Memory Usage (nodes)", "Path Length"]
-
+def plot_results(sizes, results):
+    # make 2 plots - one for dfs, one for bfs
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # colors and markers for each graph type
+    colors = ['blue', 'orange', 'green', 'red', 'purple']
+    markers = ['o', 's', '^', 'D', 'v']
+    
+    graph_types = ['Chain Graph', 'Binary Tree', 'Cyclic Graph', 'Random Sparse (e=2n)', 'Random Dense (d=0.5)']
+    
+    # dfs plot
     for i, graph_type in enumerate(graph_types):
-        for j, (metric, title) in enumerate(zip(metrics, metric_titles)):
-            ax = axes[j, i]
-
-            # Plot DFS and BFS results
-            ax.plot(sizes, all_results[graph_type]["DFS"][metric], "bo-", label="DFS")
-            ax.plot(sizes, all_results[graph_type]["BFS"][metric], "ro-", label="BFS")
-
-            ax.set_title(f"{title}\n{graph_type.title()} Graph")
-            ax.set_xlabel("Number of Nodes")
-            ax.set_ylabel(title)
-            ax.grid(True)
-
-            # Add a legend to the first plot in each row
-            if i == 0:
-                ax.legend()
-
+        ax1.plot(sizes, results[graph_type]['dfs'], 
+                color=colors[i], marker=markers[i], label=graph_type, linewidth=2)
+    
+    ax1.set_xlabel('Graph Size (nodes)')
+    ax1.set_ylabel('Time (ms)')
+    ax1.set_title('DFS Performance')
+    ax1.legend()
+    ax1.grid(True, alpha=0.3)
+    
+    # bfs plot
+    for i, graph_type in enumerate(graph_types):
+        ax2.plot(sizes, results[graph_type]['bfs'], 
+                color=colors[i], marker=markers[i], label=graph_type, linewidth=2)
+    
+    ax2.set_xlabel('Graph Size (nodes)')
+    ax2.set_ylabel('Time (ms)')
+    ax2.set_title('BFS Performance')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+    
     plt.tight_layout()
-    plt.savefig(f"algorithm_comparison/performance_line_graphs.png", dpi=300)
-    plt.close()
+    plt.show()
 
-    return all_results
-
-
-# Run the analysis on selected graph types
-selected_graph_types = ["path", "cycle", "binary_tree", "grid", "sparse", "complete"]
-results = compare_algorithms_with_line_graphs(selected_graph_types)
-
-print(
-    "Analysis complete! All visualizations saved in the 'algorithm_comparison' directory."
-)
+if __name__ == "__main__":
+    # run the analysis
+    print("starting dfs vs bfs analysis...")
+    
+    # simple test first
+    g = Graph()
+    g.add_edge(0, 1)
+    g.add_edge(1, 2)
+    g.add_edge(2, 3)
+    g.add_edge(0, 3)
+    
+    print("\nsimple test:")
+    dfs_result = g.dfs(0, 3)
+    bfs_result = g.bfs(0, 3)
+    print(f"dfs: {dfs_result}")
+    print(f"bfs: {bfs_result}")
+    
+    # performance analysis on different graph types
+    sizes, results = measure_performance()
+    
+    # show results in 2 graphs
+    plot_results(sizes, results)
+    
+    print("\nanalysis complete!")
