@@ -1,302 +1,308 @@
-import random
-import time
-import sys
-from collections import deque
+import numpy as np
 import matplotlib.pyplot as plt
+import time
+import random
+from collections import defaultdict
+import heapq
 
-def quicksort(arr):
-    if len(arr) <= 1:  # if arr small, return
-        return arr
-    else:
-        pivot = arr[0]  # pick first elem as pivot
-        left = [x for x in arr[1:] if x < pivot]  # all elems less than p
-        right = [x for x in arr[1:] if x >= pivot]  # all elems greater than p
-    return quicksort(left) + [pivot] + quicksort(right)  # combine
+class GraphGen:
+    """gen graphs for testing"""
+    
+    @staticmethod
+    def sparse_graph(n, ratio=0.3):
+        """sparse graph w/ limited edges"""
+        graph = defaultdict(list)
+        matrix = [[float('inf')] * n for _ in range(n)]
+        
+        # diag = 0
+        for i in range(n):
+            matrix[i][i] = 0
+        
+        # add edges by ratio
+        max_e = n * (n - 1) // 2
+        num_e = int(max_e * ratio)
+        
+        added = 0
+        while added < num_e:
+            u = random.randint(0, n-1)
+            v = random.randint(0, n-1)
+            
+            if u != v and matrix[u][v] == float('inf'):
+                w = random.randint(1, 10)
+                graph[u].append((v, w))
+                matrix[u][v] = w
+                matrix[v][u] = w  # undirected
+                added += 1
+        
+        return graph, matrix
+    
+    @staticmethod
+    def dense_graph(n, ratio=0.8):
+        """dense graph w/ many edges"""
+        graph = defaultdict(list)
+        matrix = [[float('inf')] * n for _ in range(n)]
+        
+        # diag = 0
+        for i in range(n):
+            matrix[i][i] = 0
+        
+        # add edges by ratio
+        max_e = n * (n - 1) // 2
+        num_e = int(max_e * ratio)
+        
+        added = 0
+        while added < num_e:
+            u = random.randint(0, n-1)
+            v = random.randint(0, n-1)
+            
+            if u != v and matrix[u][v] == float('inf'):
+                w = random.randint(1, 10)
+                graph[u].append((v, w))
+                matrix[u][v] = w
+                matrix[v][u] = w  # undirected
+                added += 1
+        
+        return graph, matrix
 
-def mergesort(arr):
-    if len(arr) <= 1:  # if small return
-        return arr
-    mid = len(arr) // 2  # find mid
-    left = arr[:mid]  # split left
-    right = arr[mid:]  # split right
-    left = mergesort(left)  # sort l
-    right = mergesort(right)  # sort r
-    merged = []
-    i = j = 0
-    while i < len(left) and j < len(right):  #merge
-        if left[i] <= right[j]:
-            merged.append(left[i])
-            i += 1
-        else:
-            merged.append(right[j])
-            j += 1
-    merged.extend(left[i:])
-    merged.extend(right[j:])
-    return merged
+class Dijkstra:
+    """dijkstra shortest path impl"""
+    
+    def __init__(self, graph):
+        self.graph = graph
+    
+    def shortest_path(self, start):
+        """find shortest from start to all nodes"""
+        dist = defaultdict(lambda: float('inf'))
+        dist[start] = 0
+        visited = set()
+        pq = [(0, start)]  # priority queue
+        
+        while pq:
+            curr_dist, curr = heapq.heappop(pq)
+            
+            if curr in visited:
+                continue
+            
+            visited.add(curr)
+            
+            # check neighbors
+            for neighbor, weight in self.graph[curr]:
+                new_dist = curr_dist + weight
+                
+                if new_dist < dist[neighbor]:
+                    dist[neighbor] = new_dist
+                    heapq.heappush(pq, (new_dist, neighbor))
+        
+        return dict(dist)
 
-def heapsort(arr):
-    def heapify(arr, n, i):
-        largest = i  # root is largest
-        left = 2 * i + 1
-        right = 2 * i + 2
-        if left < n and arr[left] > arr[largest]:
-            largest = left
-        if right < n and arr[right] > arr[largest]:
-            largest = right
-        if largest != i:  # if root is not lrg
-            arr[i], arr[largest] = arr[largest], arr[i]  # swap
-            heapify(arr, n, largest)
+class FloydWarshall:
+    """floyd-warshall all-pairs shortest path"""
+    
+    def __init__(self, matrix):
+        self.matrix = [row[:] for row in matrix]  # deep copy
+        self.n = len(matrix)
+    
+    def all_shortest_paths(self):
+        """find shortest between all pairs - dp approach"""
+        # dp: try each intermediate vertex k
+        for k in range(self.n):
+            for i in range(self.n):
+                for j in range(self.n):
+                    # if path through k is shorter
+                    if (self.matrix[i][k] != float('inf') and 
+                        self.matrix[k][j] != float('inf')):
+                        self.matrix[i][j] = min(
+                            self.matrix[i][j],
+                            self.matrix[i][k] + self.matrix[k][j]
+                        )
+        
+        return self.matrix
 
-    result = arr.copy()  # to avoid modifying orig
-    n = len(result)
-    for i in range(n // 2 - 1, -1, -1):  # build max heap
-        heapify(result, n, i)
-    for i in range(n - 1, 0, -1):  # extract
-        result[i], result[0] = result[0], result[i]  # swap
-        heapify(result, i, 0)  # heapify root
-    return result
-
-def gnome_sort(arr, n=None):
-    result = arr.copy()
-    if n is None:
-        n = len(result)
-    index = 0
-    while index < n:
-        if index == 0:
-            index = index + 1
-        if result[index] >= result[index - 1]:
-            index = index + 1
-        else:
-            result[index], result[index - 1] = result[index - 1], result[index]
-            index = index - 1
-    return result
-
-def timeout_sort(sort_func, arr, timeout=120):
-    start_time = time.time()
-    result = None
-    try:
-        if sort_func.__name__ == 'gnome_sort':  # handle gnome sort separately
-            result = sort_func(arr.copy(), len(arr))
-        else:
-            result = sort_func(arr.copy())
-    except Exception as e:
-        print(f"Sorting failed: {e}")
-    end_time = time.time()
-    elapsed_time = (end_time - start_time) * 1000
-    if elapsed_time > timeout * 1000:
-        raise TimeoutError(f"Sorting took longer than {timeout} seconds.")
-    return result, elapsed_time
-
-def measure_performance(sort_func, arr):
-    try:
-        sorted_arr, elapsed_time = timeout_sort(sort_func, arr)
-        memory_used = sys.getsizeof(sorted_arr)
-        return {
-            "time": elapsed_time,
-            "memory": memory_used,
-            "sorted_array": sorted_arr
+class Benchmark:
+    """perf analysis & comparison"""
+    
+    def __init__(self):
+        self.results = {
+            'dij_sparse': [],
+            'dij_dense': [],
+            'fw_sparse': [],
+            'fw_dense': [],
+            'nodes': []
         }
-    except TimeoutError as e:
-        return {
-            "time": float('inf'),
-            "memory": 0,
-            "sorted_array": None,
-            "error": str(e)
-        }
-
-TEST_ARRAYS = {
-    "random": [73, -12, 456.5, 89, -234, 5.25, 678, -34.7, 901, 23, -567, 8.9, 123, 45.6, 789, -15,
-               321.3, 67, -890, 2, 444, -98.2, 765, 31, -222, 543.8, 999, 17.4, 88, -654, 111.1,
-               333, -77, 987.5, 44, 555, -9, 876, 66.6, -432, 11, 777.7, -22, 666, 99.9, -345,
-               55, -888, 33.3, 234, -7, 654.2, 13, -456, 88, 321, -19.8, 789, 41.5, -567, 3, 912.9],
     
-    "nearly_sorted": [-1, 3.2, -2, 5, 4.5, -7, 6, 9.1, -8, 11, 10.8, -13, 12, 15.5, -14, 17,
-                     16.3, -19, 18, 21.7, -20, 23, 22.9, -25, 24, 27.4, -26, 29, 28.6, -31, 30,
-                     33.3, -32, 35, 34.2, -37, 36, 39.9, -38, 41, 40.1, -43, 42, 45.5, -44, 47,
-                     46.7, -49, 48, 51.2, -50, 53, 52.8, -55, 54, 57.6, -56, 59, 58.4, -61, 60,
-                     63.3, -62, 64],
+    def run_tests(self, node_sizes):
+        """run perf tests on diff graph sizes"""
+        
+        for n in node_sizes:
+            print(f"testing {n} nodes...")
+            
+            # sparse tests
+            sparse_g, sparse_m = GraphGen.sparse_graph(n)
+            
+            # dijkstra sparse
+            start = time.time()
+            dij = Dijkstra(sparse_g)
+            dij.shortest_path(0)
+            dij_sparse_t = time.time() - start
+            
+            # floyd-warshall sparse
+            start = time.time()
+            fw = FloydWarshall(sparse_m)
+            fw.all_shortest_paths()
+            fw_sparse_t = time.time() - start
+            
+            # dense tests
+            dense_g, dense_m = GraphGen.dense_graph(n)
+            
+            # dijkstra dense
+            start = time.time()
+            dij = Dijkstra(dense_g)
+            dij.shortest_path(0)
+            dij_dense_t = time.time() - start
+            
+            # floyd-warshall dense
+            start = time.time()
+            fw = FloydWarshall(dense_m)
+            fw.all_shortest_paths()
+            fw_dense_t = time.time() - start
+            
+            # save results
+            self.results['dij_sparse'].append(dij_sparse_t)
+            self.results['dij_dense'].append(dij_dense_t)
+            self.results['fw_sparse'].append(fw_sparse_t)
+            self.results['fw_dense'].append(fw_dense_t)
+            self.results['nodes'].append(n)
     
-    "reverse": [999, 987.5, 965, -943, 921.3, 899, -877, 855.7, 833, -811, 789.9, 767, -745, 723.2,
-                701, -679, 657.8, 635, -613, 591.4, 569, -547, 525.6, 503, -481, 459.1, 437,
-                -415, 393.3, 371, -349, 327.7, 305, -283, 261.9, 239, -217, 195.5, 173, -151,
-                129.2, 107, -85, 63.8, 41, -39, 37.6, 35, -33, 31.4, 29, -27, 25.1, 23, -21,
-                19.9, 17, -15, 13.3, 11, -9, 7.7, 5, -3, 1.2],
-    
-    "duplicates": [45, 45, -123, -123, 7.5, 7.5, -89, -89, 456.2, 456.2, 23, 23, -678, -678,
-                   12.9, 12.9, 333, 333, -9, -9, 555.5, 555.5, 77, 77, -888, -888, 34.4, 34.4,
-                   222, 222, -654, -654, 11.1, 11.1, 987, 987, -66, -66, 432.3, 432.3, 99,
-                   99, -345, -345, 15.7, 15.7, 789, 789, -41, -41, 567.8, 567.8, 3, 3, -912,
-                   -912, 88.6, 88.6, 321, 321, -19, -19, 44.2, 44.2],
-    
-    "few_unique": [-5, 17.5, -5, -42, 17.5, 99.9, -5, -42, 17.5, 99.9, -5, 17.5, -42, -5,
-                   99.9, 17.5, -5, -42, 17.5, 99.9, -5, 17.5, -42, -5, 99.9, 17.5, -5, -42,
-                   17.5, 99.9, -5, 17.5, -42, -5, 99.9, 17.5, -5, -42, 17.5, 99.9, -5, 17.5,
-                   -42, -5, 99.9, 17.5, -5, -42, 17.5, 99.9, -5, 17.5, -42, -5, 99.9, 17.5,
-                   -5, -42, 17.5, 99.9, -5, 17.5, -42, 3.2]
-}
-
-def print_conclusion(all_stats):
-    print("\n=== Results ===")
-    for algo_name, stats in all_stats.items():
-        total_time = sum(measures["time"] for measures in stats.values() if measures["time"] != float('inf'))
-        avg_time = total_time / len([m for m in stats.values() if m["time"] != float('inf')]) if total_time > 0 else float('inf')
-        avg_memory = sum(measures["memory"] for measures in stats.values() if measures["memory"] > 0) / len([m for m in stats.values() if m["memory"] > 0]) if total_time > 0 else 0
+    def make_graphs(self):
+        """create perf comparison graphs"""
         
-        print(f"\n{algo_name}:")
-        print(f"Average Time: {avg_time:.4f} ms")
-        print(f"Average Memory: {avg_memory:.2f} bytes")
+        plt.figure(figsize=(16, 12))
         
-        times = [(arr_type, measures["time"]) for arr_type, measures in stats.items() if measures["time"] != float('inf')]
-        if times:
-            best_case = min(times, key=lambda x: x[1])
-            worst_case = max(times, key=lambda x: x[1])
-            print(f"Best performance: {best_case[0]} array ({best_case[1]:.4f} ms)")
-            print(f"Worst performance: {worst_case[0]} array ({worst_case[1]:.4f} ms)")
-        else:
-            print("No valid performance.")
-
-def plot_results(all_stats, is_single_algorithm=False):
-    for algo_name, stats in all_stats.items():
-        plt.figure(figsize=(12, 6))
+        # graph 1: dijkstra comparison
+        plt.subplot(2, 3, 1)
+        plt.plot(self.results['nodes'], self.results['dij_sparse'], 
+                'b-o', label='sparse', linewidth=2, markersize=6)
+        plt.plot(self.results['nodes'], self.results['dij_dense'], 
+                'r-s', label='dense', linewidth=2, markersize=6)
+        plt.xlabel('nodes')
+        plt.ylabel('time (sec)')
+        plt.title('dijkstra performance')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        array_types = []
-        times = []
-        memories = []
+        # graph 2: floyd-warshall comparison
+        plt.subplot(2, 3, 2)
+        plt.plot(self.results['nodes'], self.results['fw_sparse'], 
+                'g-^', label='sparse', linewidth=2, markersize=6)
+        plt.plot(self.results['nodes'], self.results['fw_dense'], 
+                'm-d', label='dense', linewidth=2, markersize=6)
+        plt.xlabel('nodes')
+        plt.ylabel('time (sec)')
+        plt.title('floyd-warshall performance')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        for arr_type, measures in stats.items():
-            if measures["time"] != float('inf'):
-                array_types.append(arr_type)
-                times.append(measures["time"])
-                memories.append(measures["memory"])
+        # graph 3: sparse comparison
+        plt.subplot(2, 3, 3)
+        plt.plot(self.results['nodes'], self.results['dij_sparse'], 
+                'b-o', label='dijkstra', linewidth=2, markersize=6)
+        plt.plot(self.results['nodes'], self.results['fw_sparse'], 
+                'g-^', label='floyd-warshall', linewidth=2, markersize=6)
+        plt.xlabel('nodes')
+        plt.ylabel('time (sec)')
+        plt.title('sparse graphs comparison')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        plt.subplot(1, 2, 1)
-        bars = plt.bar(array_types, times, color='skyblue')
-        plt.title(f'{algo_name} Execution Time by Array Type')
-        plt.xlabel('Array Type')
-        plt.ylabel('Time (ms)')
-        plt.xticks(rotation=45)
+        # graph 4: dense comparison
+        plt.subplot(2, 3, 4)
+        plt.plot(self.results['nodes'], self.results['dij_dense'], 
+                'r-s', label='dijkstra', linewidth=2, markersize=6)
+        plt.plot(self.results['nodes'], self.results['fw_dense'], 
+                'm-d', label='floyd-warshall', linewidth=2, markersize=6)
+        plt.xlabel('nodes')
+        plt.ylabel('time (sec)')
+        plt.title('dense graphs comparison')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-                    f'{height:.2f}', ha='center', va='bottom', fontsize=8)
+        # graph 5: time complexity visualization
+        plt.subplot(2, 3, 5)
+        nodes = np.array(self.results['nodes'])
+        # theoretical complexity curves
+        plt.plot(nodes, (nodes * np.log(nodes)) * 0.001, 'b--', 
+                label='o(n log n)', alpha=0.7, linewidth=2)
+        plt.plot(nodes, (nodes ** 3) * 0.000001, 'r--', 
+                label='o(n³)', alpha=0.7, linewidth=2)
+        plt.xlabel('nodes')
+        plt.ylabel('normalized time')
+        plt.title('theoretical complexity')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
-        plt.subplot(1, 2, 2)
-        bars = plt.bar(array_types, memories, color='lightgreen')
-        plt.title(f'{algo_name} Memory Usage by Array Type')
-        plt.xlabel('Array Type')
-        plt.ylabel('Memory (bytes)')
-        plt.xticks(rotation=45)
-        
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-                    f'{int(height)}', ha='center', va='bottom', fontsize=8)
+        # graph 6: efficiency ratio
+        plt.subplot(2, 3, 6)
+        ratio_sparse = [fw/dij for fw, dij in zip(self.results['fw_sparse'], self.results['dij_sparse'])]
+        ratio_dense = [fw/dij for fw, dij in zip(self.results['fw_dense'], self.results['dij_dense'])]
+        plt.plot(self.results['nodes'], ratio_sparse, 'g-o', 
+                label='sparse ratio', linewidth=2, markersize=6)
+        plt.plot(self.results['nodes'], ratio_dense, 'm-s', 
+                label='dense ratio', linewidth=2, markersize=6)
+        plt.xlabel('nodes')
+        plt.ylabel('fw/dijkstra ratio')
+        plt.title('efficiency ratio')
+        plt.legend()
+        plt.grid(True, alpha=0.3)
         
         plt.tight_layout()
-        
-        if is_single_algorithm:
-            plt.show()
-            return
+        plt.savefig('perf_analysis.png', dpi=300, bbox_inches='tight')
+        plt.show()
     
-    if not is_single_algorithm and len(all_stats) > 1:
-        plt.figure(figsize=(14, 8))
+    def print_summary(self):
+        """print detailed analysis"""
+        print("\n" + "="*70)
+        print("PERFORMANCE ANALYSIS SUMMARY")
+        print("="*70)
         
-        algo_names = []
-        avg_times = []
+        print(f"{'nodes':<8} {'dij_sparse':<12} {'dij_dense':<12} {'fw_sparse':<12} {'fw_dense':<12}")
+        print("-" * 70)
         
-        for algo_name, stats in all_stats.items():
-            valid_times = [measures["time"] for measures in stats.values() if measures["time"] != float('inf')]
-            if valid_times:
-                algo_names.append(algo_name)
-                avg_times.append(sum(valid_times) / len(valid_times))
+        for i, n in enumerate(self.results['nodes']):
+            print(f"{n:<8} {self.results['dij_sparse'][i]:<12.4f} "
+                  f"{self.results['dij_dense'][i]:<12.4f} "
+                  f"{self.results['fw_sparse'][i]:<12.4f} "
+                  f"{self.results['fw_dense'][i]:<12.4f}")
         
-        bars = plt.bar(algo_names, avg_times, color=['skyblue', 'lightgreen', 'lightcoral', 'gold'])
-        plt.title('Average Execution Time by Algorithm')
-        plt.xlabel('Algorithm')
-        plt.ylabel('Time (ms)')
+        # calc avg improvement ratios
+        avg_sparse_ratio = sum(fw/dij for fw, dij in 
+                              zip(self.results['fw_sparse'], self.results['dij_sparse'])) / len(self.results['nodes'])
+        avg_dense_ratio = sum(fw/dij for fw, dij in 
+                             zip(self.results['fw_dense'], self.results['dij_dense'])) / len(self.results['nodes'])
         
-        for bar in bars:
-            height = bar.get_height()
-            plt.text(bar.get_x() + bar.get_width()/2., height + 0.1,
-                    f'{height:.2f}', ha='center', va='bottom')
-        
-        plt.tight_layout()
-    
-    plt.show()
+        print(f"\navg fw/dijkstra ratio - sparse: {avg_sparse_ratio:.2f}x")
+        print(f"avg fw/dijkstra ratio - dense: {avg_dense_ratio:.2f}x")
 
 def main():
-    print("\nChoose:")
-    print("1. QuickSort")
-    print("2. MergeSort")
-    print("3. HeapSort")
-    print("4. Gnome Sort")
-    print("5. Run all algorithms")
+    """main analysis runner"""
+    print("dynamic programming algorithms analysis")
+    print("="*50)
     
-    choice = input("Enter your choice: ").strip()
-    if choice not in ['1', '2', '3', '4', '5']:
-        choice = '5'
-        print("Invalid choice. Running all algorithms.")
+    # setup
+    bench = Benchmark()
     
-    show_sorted = input("\nWanna see the sorted arrays?: ").lower()
-    show_sorted = show_sorted == 'y'
+    # test sizes
+    sizes = [10, 15, 20, 25, 30, 35, 40]
     
-    all_stats = {}
-    is_single_algorithm = choice != '5'
+    # run tests
+    bench.run_tests(sizes)
     
-    if choice == '1':
-        sort_func = quicksort
-        print("\n>>> QuickSort Results <<<")
-        stats = {name: measure_performance(sort_func, arr) 
-                for name, arr in TEST_ARRAYS.items()}
-        all_stats['QuickSort'] = stats
-        
-    elif choice == '2':
-        sort_func = mergesort
-        print("\n>>> MergeSort Results <<<")
-        stats = {name: measure_performance(sort_func, arr) 
-                for name, arr in TEST_ARRAYS.items()}
-        all_stats['MergeSort'] = stats
-        
-    elif choice == '3':
-        sort_func = heapsort
-        print("\n>>> HeapSort Results <<<")
-        stats = {name: measure_performance(sort_func, arr) 
-                for name, arr in TEST_ARRAYS.items()}
-        all_stats['HeapSort'] = stats
-        
-    elif choice == '4':
-        sort_func = gnome_sort
-        print("\n>>> Gnome Sort Results <<<")
-        stats = {name: measure_performance(sort_func, arr) 
-                for name, arr in TEST_ARRAYS.items()}
-        all_stats['GnomeSort'] = stats
-        
-    else:  # choice == '5' or invalid choice
-        print("\n>>> Running All Algorithms <<<")
-        all_stats['QuickSort'] = {name: measure_performance(quicksort, arr) 
-                                for name, arr in TEST_ARRAYS.items()}
-        all_stats['MergeSort'] = {name: measure_performance(mergesort, arr) 
-                                for name, arr in TEST_ARRAYS.items()}
-        all_stats['HeapSort'] = {name: measure_performance(heapsort, arr) 
-                                for name, arr in TEST_ARRAYS.items()}
-        all_stats['GnomeSort'] = {name: measure_performance(gnome_sort, arr) 
-                                for name, arr in TEST_ARRAYS.items()}
+    # create visuals
+    bench.make_graphs()
     
-    for algo_name, stats in all_stats.items():
-        print(f"\n{algo_name} Results:")
-        for arr_type, measures in stats.items():
-            print(f"\n{arr_type} array:")
-            if "error" in measures:
-                print(f"Error: {measures['error']}")
-            else:
-                print(f"Time: {measures['time']:.4f} ms, Memory: {measures['memory']} bytes")
-                if show_sorted:
-                    print(f"Sorted array: {measures['sorted_array']}")
+    # show summary
+    bench.print_summary()
     
-    print_conclusion(all_stats)
-    
-    plot_results(all_stats, is_single_algorithm)
+    print("\nanalysis done! check 'perf_analysis.png'")
 
 if __name__ == "__main__":
     main()
